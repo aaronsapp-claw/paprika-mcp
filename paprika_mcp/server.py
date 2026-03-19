@@ -73,31 +73,55 @@ def list_grocery_lists() -> list[dict]:
 
 
 @mcp.tool()
-def list_grocery_items(list_uid: str | None = None) -> list[dict]:
-    """List grocery items, optionally filtered to a specific grocery list.
+def list_grocery_items(list_uid: str, include_checked: bool = False) -> list[dict]:
+    """List grocery items for a specific grocery list.
 
     Returns items with name, quantity, ingredient, aisle, purchased status,
     recipe reference, and list membership.
 
     Args:
-        list_uid: Optional grocery list UID to filter items. If omitted,
-                  returns all items across all lists.
+        list_uid: Grocery list UID to filter items.
+        include_checked: Include checked/purchased items when true.
     """
     items = _client().list_grocery_items()
-    if list_uid:
-        items = [item for item in items if item.get("list_uid") == list_uid]
+    items = [item for item in items if item.get("list_uid") == list_uid]
+    if not include_checked:
+        items = [item for item in items if not item.get("purchased")]
     return items
 
 
 @mcp.tool()
-def list_meal_plans() -> list[dict]:
-    """List all meal plan entries.
+def list_meal_plans(start_date: str | None = None, end_date: str | None = None) -> list[dict]:
+    """List meal plan entries, optionally filtered by date range.
 
     Returns meal entries with name, date, meal type, and optional recipe reference.
     Each entry includes a human-readable meal_type_name field in addition to the
     numeric type field (0=Breakfast, 1=Lunch, 2=Dinner, 3=Snack).
+
+    Args:
+        start_date: Optional start date (YYYY-MM-DD) inclusive.
+        end_date: Optional end date (YYYY-MM-DD) inclusive.
     """
     meals = _client().list_meal_plans()
+    if start_date or end_date:
+        from datetime import date
+
+        start = date.fromisoformat(start_date) if start_date else None
+        end = date.fromisoformat(end_date) if end_date else None
+
+        filtered: list[dict] = []
+        for meal in meals:
+            meal_date_str = meal.get("date", "").split(" ")[0]
+            try:
+                meal_date = date.fromisoformat(meal_date_str)
+            except Exception:
+                continue
+            if start and meal_date < start:
+                continue
+            if end and meal_date > end:
+                continue
+            filtered.append(meal)
+        meals = filtered
     for meal in meals:
         meal["meal_type_name"] = MEAL_TYPES.get(meal.get("type"), "Unknown")
     return meals

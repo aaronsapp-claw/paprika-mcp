@@ -3,6 +3,9 @@
 ## End-to-End Validation (Required)
 When making changes that affect Paprika auth, network handling, or the MCP server runtime, run a local end-to-end validation before declaring success.
 
+## Documentation Update (Required)
+When tool signatures or behavior change, update the README and tool documentation (including `API_REFERENCE.md`) in the same change.
+
 **Minimum E2E sequence:**
 1. `python - <<'PY'`
    from paprika_mcp.client import PaprikaClient

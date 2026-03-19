@@ -56,7 +56,7 @@ email=user@example.com&password=userpassword
 **Usage:**
 - Use HTTP Basic Auth + form data
 - More stable than V2, avoids "Unrecognized client" errors
-- Token cached to `.paprika_token` with 600 permissions
+- Token cached to `~/Library/Application Support/paprika-mcp/.paprika_token.json` with 600 permissions
 
 ---
 
@@ -128,6 +128,9 @@ Authorization: Bearer <token>
 - `aisle`: Auto-assigned by Paprika based on `ingredient`
 - `ingredient`: Lowercase version of item name
 - `list_uid`: **Required** - specifies which grocery list item belongs to
+
+**Tooling Note:**
+- The MCP tool `list_grocery_items` requires `list_uid` and filters by list; set `include_checked=true` to include purchased items.
 
 #### Create/Update Grocery Items
 **Request:**
