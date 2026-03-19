@@ -1,13 +1,10 @@
 import base64
 import gzip
 import json
-import os
+from pathlib import Path
 from typing import Optional
 
 import httpx
-from dotenv import load_dotenv
-
-load_dotenv()
 
 BASE_URL = "https://www.paprikaapp.com/api"
 
@@ -15,16 +12,41 @@ BASE_URL = "https://www.paprikaapp.com/api"
 class PaprikaClient:
     """HTTP client for the Paprika Recipe Manager API."""
 
-    def __init__(self) -> None:
-        self.email = os.environ["PAPRIKA_EMAIL"]
-        self.password = os.environ["PAPRIKA_PASSWORD"]
+    def __init__(self, email: str, password: str, token_cache_path: Path | None = None) -> None:
+        self.email = email
+        self.password = password
         self._token: Optional[str] = None
+        self._token_cache_path = token_cache_path
+        self._load_cached_token()
+
+    def _load_cached_token(self) -> None:
+        if not self._token_cache_path:
+            return
+        try:
+            if not self._token_cache_path.exists():
+                return
+            data = json.loads(self._token_cache_path.read_text())
+            token = data.get("token") if isinstance(data, dict) else None
+            if token:
+                self._token = token
+        except Exception:
+            # Ignore cache errors; we'll re-authenticate.
+            self._token = None
+
+    def _save_cached_token(self, token: str) -> None:
+        if not self._token_cache_path:
+            return
+        try:
+            self._token_cache_path.parent.mkdir(parents=True, exist_ok=True)
+            self._token_cache_path.write_text(json.dumps({"token": token}))
+            self._token_cache_path.chmod(0o600)
+        except Exception:
+            # Best-effort cache; auth still works without it.
+            return
 
     def _authenticate(self) -> str:
         """Obtain a bearer token using V1 Basic Auth + form data login."""
-        credentials = base64.b64encode(
-            f"{self.email}:{self.password}".encode()
-        ).decode()
+        credentials = base64.b64encode(f"{self.email}:{self.password}".encode()).decode()
         response = httpx.post(
             f"{BASE_URL}/v1/account/login/",
             headers={
@@ -36,6 +58,7 @@ class PaprikaClient:
         )
         response.raise_for_status()
         self._token = response.json()["result"]["token"]
+        self._save_cached_token(self._token)
         return self._token
 
     def _get_token(self) -> str:
@@ -65,7 +88,6 @@ class PaprikaClient:
             )
         response.raise_for_status()
 
-        # Some responses are gzip-compressed; check magic bytes
         content = response.content
         if content[:2] == b"\x1f\x8b":
             content = gzip.decompress(content)

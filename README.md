@@ -1,48 +1,47 @@
-# paprika-mcp
+# Paprika MCP Server
 
-MCP server for Paprika Recipe Manager, built with [FastMCP](https://github.com/jlowin/fastmcp).
+FastMCP server for Paprika Recipe Manager.
 
-## Setup
+## Quick Install (macOS)
 
-1. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. Copy `.env.example` to `.env` and fill in your Paprika credentials:
-   ```bash
-   cp .env.example .env
-   ```
-
-## Claude Desktop Configuration
-
-Add to your `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "paprika": {
-      "command": "python",
-      "args": ["/path/to/paprika-mcp/server.py"]
-    }
-  }
-}
+```bash
+curl -sSL https://raw.githubusercontent.com/aarons22/paprika-mcp/main/install.sh | bash
 ```
 
-## Available Tools
+Then run:
 
-| Tool | Description |
-|------|-------------|
-| `get_sync_status` | Get change counters for all resource types |
-| `list_recipes` | List all recipes as lightweight `{uid, hash}` pairs |
-| `get_recipe(uid)` | Get full recipe details by UID |
-| `list_categories` | List all recipe categories |
-| `list_grocery_lists` | List all grocery lists |
-| `list_grocery_items(list_uid?)` | List grocery items, optionally filtered by list |
-| `list_meal_plans` | List all meal plan entries |
+```bash
+paprika-mcp setup
+paprika-mcp install
+```
+
+If `paprika-mcp` isn’t on your PATH, use:
+
+```bash
+$HOME/.local/bin/paprika-mcp --help
+```
+
+## CLI Commands
+
+- `paprika-mcp setup`
+- `paprika-mcp run`
+- `paprika-mcp install`
+- `paprika-mcp uninstall`
+- `paprika-mcp status`
+- `paprika-mcp logs`
+
+## Config
+
+- `~/Library/Application Support/paprika-mcp/config.toml`
+- Token cache: `~/Library/Application Support/paprika-mcp/.paprika_token.json`
+
+## Logs
+
+- `~/Library/Logs/paprika-mcp.out.log`
+- `~/Library/Logs/paprika-mcp.err.log`
 
 ## Notes
 
 - All operations are **read-only**
 - The Paprika API is unofficial and undocumented; see `API_REFERENCE.md` for details
-- Tokens are cached in memory and refreshed automatically on expiry (401)
+- Tokens are cached on disk and refreshed automatically on expiry (401)
