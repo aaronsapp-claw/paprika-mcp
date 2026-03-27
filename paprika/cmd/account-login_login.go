@@ -1,3 +1,4 @@
+// commandspec:custom:start
 package cmd
 
 import (
@@ -61,3 +62,5 @@ func init() {
 	accountLoginLoginCmd.Flags().StringVar(&loginEmail, "email", "", "Paprika account email (required)")
 	accountLoginLoginCmd.Flags().StringVar(&loginPassword, "password", "", "Paprika account password (required)")
 }
+
+// commandspec:custom:end

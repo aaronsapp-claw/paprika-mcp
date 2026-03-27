@@ -25,3 +25,35 @@ When tool signatures or behavior change, update the README and tool documentatio
 
 **Notes:**
 - If this is your first local run, execute `paprika-mcp setup` to configure credentials.
+
+## CLI Code Generation (paprika/)
+
+The Go CLI in `paprika/` is generated from `openapi.yaml` using [CommandSpec](https://github.com/theaiteam-dev/commandspec):
+
+```bash
+go install github.com/theaiteam-dev/commandspec@latest
+commandspec init --schema ./openapi.yaml --name paprika --output-dir ./paprika
+```
+
+**Regenerating wipes all custom code unless it is wrapped in preservation markers:**
+
+```go
+// commandspec:custom:start
+... your custom code ...
+// commandspec:custom:end
+```
+
+Use `commandspec update` (not `init`) when the spec changes after the initial generation — it respects these markers. `init` always generates fresh files with no preservation.
+
+**Files with custom markers (must not be removed):**
+
+| File | What's custom |
+|------|---------------|
+| `paprika/cmd/account-login_login.go` | Entire file — `--email`/`--password` flags, hardcoded auth URL, auto-save token logic |
+| `paprika/internal/config.go` | `Save()` function — writes token to `~/.config/paprika/config.yaml` |
+
+After regenerating, also fix:
+- `go.mod` module name → `github.com/aarons22/paprika-mcp/paprika`
+- All `import "paprika/..."` → `import "github.com/aarons22/paprika-mcp/paprika/..."`
+- Remove unused `"encoding/base64"` import from `internal/client/client.go`
+- Patch `account-login.go` group name from `account-login` → `account`

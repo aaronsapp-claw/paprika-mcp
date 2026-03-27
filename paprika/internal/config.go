@@ -40,6 +40,7 @@ func Load(cliName string) (*Config, error) {
 	return cfg, nil
 }
 
+// commandspec:custom:start
 // Save writes cfg to ~/.config/<cliName>/config.yaml, creating the directory
 // if necessary. The file is written with 0600 permissions so the token is not
 // world-readable.
@@ -66,6 +67,8 @@ func Save(cliName string, cfg *Config) (string, error) {
 
 	return configPath, nil
 }
+
+// commandspec:custom:end
 
 // Auth environment variables detected from the OpenAPI spec:
 //
