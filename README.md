@@ -17,8 +17,8 @@ Tools for interacting with the [Paprika Recipe Manager](https://www.paprikaapp.c
 **Build from source** (requires Go 1.21+):
 
 ```bash
-git clone https://github.com/aarons22/paprika-mcp
-cd paprika-mcp/paprika
+git clone https://github.com/aarons22/paprika-tools
+cd paprika-tools/paprika
 go build -o paprika .
 mv paprika /usr/local/bin/
 ```
@@ -26,7 +26,7 @@ mv paprika /usr/local/bin/
 **go install** (once the repo is tagged):
 
 ```bash
-go install github.com/aarons22/paprika-mcp/paprika@latest
+go install github.com/aarons22/paprika-tools/paprika@latest
 ```
 
 ### Authenticate
@@ -86,7 +86,7 @@ FastMCP server that exposes Paprika data as tools for AI agents (Claude, Cursor,
 ### Quick Install (macOS)
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/aarons22/paprika-mcp/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/aarons22/paprika-tools/main/install.sh | bash
 ```
 
 Then run:

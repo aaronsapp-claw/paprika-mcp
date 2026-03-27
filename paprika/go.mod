@@ -1,4 +1,4 @@
-module github.com/aarons22/paprika-mcp/paprika
+module github.com/aarons22/paprika-tools/paprika
 
 go 1.21
 
