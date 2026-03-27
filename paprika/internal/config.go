@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,5 +40,33 @@ func Load(cliName string) (*Config, error) {
 	return cfg, nil
 }
 
+// Save writes cfg to ~/.config/<cliName>/config.yaml, creating the directory
+// if necessary. The file is written with 0600 permissions so the token is not
+// world-readable.
+func Save(cliName string, cfg *Config) (string, error) {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", fmt.Errorf("locating config directory: %w", err)
+	}
+
+	dir := filepath.Join(configDir, cliName)
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return "", fmt.Errorf("creating config directory: %w", err)
+	}
+
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return "", fmt.Errorf("encoding config: %w", err)
+	}
+
+	configPath := filepath.Join(dir, "config.yaml")
+	if err := os.WriteFile(configPath, data, 0600); err != nil {
+		return "", fmt.Errorf("writing config file: %w", err)
+	}
+
+	return configPath, nil
+}
+
 // Auth environment variables detected from the OpenAPI spec:
-//   PAPRIKA_TOKEN
+//
+//	PAPRIKA_TOKEN

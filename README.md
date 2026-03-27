@@ -31,21 +31,14 @@ go install github.com/aarons22/paprika-mcp/paprika@latest
 
 ### Authenticate
 
-Get a Bearer token and save it to your config file:
-
 ```bash
 paprika account login \
   --base-url https://www.paprikaapp.com/api/v1 \
-  --body '{"email":"you@example.com","password":"yourpassword"}' \
-  --json
+  --email you@example.com \
+  --password yourpassword
 ```
 
-Copy the `result.token` value from the response, then save it:
-
-```bash
-mkdir -p ~/.config/paprika
-echo "token: YOUR_TOKEN_HERE" > ~/.config/paprika/config.yaml
-```
+The token is saved automatically to `~/.config/paprika/config.yaml` (mode 0600). All subsequent commands read it from there — no manual copy-paste required.
 
 The token is also accepted via the `PAPRIKA_TOKEN` environment variable. All other commands use the default base URL (`https://www.paprikaapp.com/api/v2/sync`) — only `account login` needs the `--base-url` override shown above.
 
