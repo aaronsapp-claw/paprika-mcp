@@ -4,20 +4,29 @@ info:
   version: "2.0.0"
   description: >
     Unofficial API for the Paprika Recipe Manager application.
-    Documented from real API traffic in API_REFERENCE.md and supplemented
+    Documented from real API traffic (API_REFERENCE.md) and supplemented
     by reverse-engineering analysis (github.com/johnwbyrd/kappari).
 
-    Authentication: obtain a Bearer token via POST /v1/account/login/,
-    then pass it as `Authorization: Bearer <token>` on all subsequent requests.
+    **Base URL:** The default base URL is `https://www.paprikaapp.com/api/v2/sync`
+    which covers all sync endpoints. The authentication endpoint lives under
+    `/v1/account` — when calling `account login`, set `--base-url` to
+    `https://www.paprikaapp.com/api/v1` or use the `PAPRIKA_BASE_URL` environment
+    variable.
 
-    Gzip note: POST endpoints that sync data (recipes, groceries) require the
+    **Gzip note:** POST endpoints that sync data (recipes, groceries) require the
     request body to be gzip-compressed JSON sent as multipart/form-data.
     Responses from some endpoints may also be gzip-compressed; clients should
     check for the 0x1f 0x8b magic bytes and decompress accordingly.
 
+    **Recipe path note:** The underlying Paprika API uses the singular path
+    `/v2/sync/recipe/{uid}/` for individual recipe operations. In this spec the
+    path is normalised to `/recipes/{uid}/` (plural) for a consistent CLI
+    experience; the default base URL already includes `/v2/sync` so the effective
+    URL is identical.
+
 servers:
-  - url: https://www.paprikaapp.com/api
-    description: Paprika production API
+  - url: https://www.paprikaapp.com/api/v2/sync
+    description: Paprika sync API (all endpoints except authentication)
 
 security:
   - bearerAuth: []
@@ -547,7 +556,9 @@ components:
 
 paths:
   # --- Authentication ---
-  /v1/account/login/:
+  # Note: the login endpoint lives under /v1/account on the Paprika API, not /v2/sync.
+  # When using the CLI, pass --base-url https://www.paprikaapp.com/api/v1 for this command.
+  /account/login/:
     post:
       operationId: login
       summary: Authenticate and obtain a Bearer token
@@ -555,7 +566,18 @@ paths:
         Authenticate using HTTP Basic Auth credentials plus form-encoded body.
         Returns a JWT Bearer token to use on all subsequent requests.
         V1 is preferred over V2 to avoid "Unrecognized client" errors.
-        Token should be cached locally and refreshed on 401 responses.
+
+        **CLI usage:** this endpoint lives under `/v1/account` on the real API, not `/v2/sync`.
+        When calling via the CLI, override the base URL:
+
+        ```
+        paprika account login \
+          --base-url https://www.paprikaapp.com/api/v1 \
+          --body '{"email":"you@example.com","password":"yourpassword"}' \
+          --json
+        ```
+
+        Token is cached to `~/.config/paprika/config.yaml` or read from `PAPRIKA_TOKEN`.
       tags: [account]
       security:
         - basicAuth: []
@@ -576,7 +598,7 @@ paths:
           description: Invalid credentials.
 
   # --- Sync Status ---
-  /v2/sync/status/:
+  /status/:
     get:
       operationId: getSyncStatus
       summary: Get sync status counters
@@ -584,7 +606,7 @@ paths:
         Returns change counters for all Paprika resource types. Values increment
         on each modification. Compare against previously stored counters to detect
         which resource types have changed since the last sync.
-      tags: [sync]
+      tags: [status]
       responses:
         "200":
           description: Sync status counters.
@@ -594,15 +616,14 @@ paths:
                 $ref: '#/components/schemas/SyncStatus'
 
   # --- Recipes ---
-  /v2/sync/recipes/:
+  /recipes/:
     get:
       operationId: listRecipes
       summary: List all recipes (lightweight uid+hash pairs)
       description: >
         Returns only uid and hash for each recipe. Designed for efficient
         change detection: compare hashes against cached values to determine
-        which recipes need a full fetch. Use GET /v2/sync/recipe/{uid}/
-        for full recipe details.
+        which recipes need a full fetch. Use GET /recipes/{uid}/ for full details.
       tags: [recipes]
       responses:
         "200":
@@ -612,7 +633,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/RecipeListResult'
 
-  /v2/sync/recipe/{uid}/:
+  /recipes/{uid}/:
     get:
       operationId: getRecipe
       summary: Get full recipe details
@@ -620,6 +641,9 @@ paths:
         Returns the complete recipe object for the specified UID.
         Part of the two-step sync pattern: list first, then fetch only
         recipes with changed hashes.
+
+        Note: the underlying Paprika API uses the singular path `/v2/sync/recipe/{uid}/`.
+        This spec normalises it to `/recipes/{uid}/` for a consistent CLI experience.
       tags: [recipes]
       parameters:
         - name: uid
@@ -649,8 +673,9 @@ paths:
         unused text fields. Client must generate a UUID4 (uppercase) for new
         recipes. Update the `hash` field whenever content changes.
 
-        Soft delete: set `in_trash: true` and POST the update. There is no
-        true DELETE endpoint for recipes.
+        Soft delete: set `in_trash: true` and POST the update.
+
+        Note: the underlying Paprika API uses the singular path `/v2/sync/recipe/{uid}/`.
       tags: [recipes]
       parameters:
         - name: uid
@@ -659,7 +684,6 @@ paths:
           description: Uppercase UUID4 recipe identifier (client-generated for new recipes).
           schema:
             type: string
-          example: "07975578-DE1A-42AB-B184-6E8FCB9AB753"
       requestBody:
         required: true
         content:
@@ -675,7 +699,7 @@ paths:
                 $ref: '#/components/schemas/BoolResult'
 
   # --- Categories ---
-  /v2/sync/categories/:
+  /categories/:
     get:
       operationId: listCategories
       summary: List all recipe categories
@@ -692,7 +716,7 @@ paths:
                 $ref: '#/components/schemas/CategoryListResult'
 
   # --- Grocery Lists ---
-  /v2/sync/grocerylists/:
+  /grocerylists/:
     get:
       operationId: listGroceryLists
       summary: List all grocery lists
@@ -707,7 +731,7 @@ paths:
                 $ref: '#/components/schemas/GroceryListResult'
 
   # --- Grocery Items ---
-  /v2/sync/groceries/:
+  /groceries/:
     get:
       operationId: listGroceryItems
       summary: List all grocery items across all lists
@@ -724,7 +748,7 @@ paths:
                 $ref: '#/components/schemas/GroceryItemListResult'
 
     post:
-      operationId: upsertGroceryItems
+      operationId: createGroceryItems
       summary: Create or update grocery items
       description: >
         Creates or updates one or more grocery items. The request body must
@@ -733,8 +757,7 @@ paths:
         new item. Set `list_uid` to target the correct list. Leave `aisle`
         empty for Paprika auto-assignment.
 
-        Soft delete: set `purchased: true` and POST the update. There is no
-        true DELETE endpoint for grocery items.
+        Soft delete: set `purchased: true` and POST the update.
       tags: [groceries]
       requestBody:
         required: true
@@ -751,7 +774,7 @@ paths:
                 $ref: '#/components/schemas/BoolResult'
 
   # --- Meal Plans ---
-  /v2/sync/meals/:
+  /meals/:
     get:
       operationId: listMealPlans
       summary: List all meal plan entries
@@ -769,7 +792,7 @@ paths:
                 $ref: '#/components/schemas/MealPlanListResult'
 
   # --- Pantry ---
-  /v2/sync/pantry/:
+  /pantry/:
     get:
       operationId: listPantryItems
       summary: List pantry inventory items
@@ -788,7 +811,7 @@ paths:
 tags:
   - name: account
     description: Authentication and account management
-  - name: sync
+  - name: status
     description: Sync status and change detection
   - name: recipes
     description: Recipe management (two-step fetch pattern)
