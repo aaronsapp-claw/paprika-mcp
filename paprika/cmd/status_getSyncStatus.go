@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 	"github.com/spf13/cobra"
-	"github.com/aarons22/paprika-mcp/paprika/internal/client"
-	"github.com/aarons22/paprika-mcp/paprika/internal/output"
+	"github.com/aarons22/paprika-tools/paprika/internal/client"
+	"github.com/aarons22/paprika-tools/paprika/internal/output"
 )
 
 var statusGetSyncStatusCmd = &cobra.Command{

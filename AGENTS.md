@@ -53,7 +53,7 @@ Use `commandspec update` (not `init`) when the spec changes after the initial ge
 | `paprika/internal/config.go` | `Save()` function — writes token to `~/.config/paprika/config.yaml` |
 
 After regenerating, also fix:
-- `go.mod` module name → `github.com/aarons22/paprika-mcp/paprika`
-- All `import "paprika/..."` → `import "github.com/aarons22/paprika-mcp/paprika/..."`
+- `go.mod` module name → `github.com/aarons22/paprika-tools/paprika`
+- All `import "paprika/..."` → `import "github.com/aarons22/paprika-tools/paprika/..."`
 - Remove unused `"encoding/base64"` import from `internal/client/client.go`
 - Patch `account-login.go` group name from `account-login` → `account`

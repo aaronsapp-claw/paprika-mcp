@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_NAME="paprika-mcp"
-DEFAULT_REPO_URL="https://github.com/aarons22/paprika-mcp"
-DEFAULT_INSTALL_DIR="$HOME/.local/paprika-mcp"
+APP_NAME="paprika-tools"
+DEFAULT_REPO_URL="https://github.com/aarons22/paprika-tools"
+DEFAULT_INSTALL_DIR="$HOME/.local/paprika-tools"
 
 REPO_URL="${REPO_URL:-$DEFAULT_REPO_URL}"
 INSTALL_DIR="${INSTALL_DIR:-$DEFAULT_INSTALL_DIR}"

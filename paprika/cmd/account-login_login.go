@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/aarons22/paprika-mcp/paprika/internal"
-	"github.com/aarons22/paprika-mcp/paprika/internal/client"
+	"github.com/aarons22/paprika-tools/paprika/internal"
+	"github.com/aarons22/paprika-tools/paprika/internal/client"
 	"github.com/spf13/cobra"
 )
 
