@@ -20,23 +20,14 @@ var accountLoginLoginCmd = &cobra.Command{
 	Short: "Authenticate and save a Bearer token to ~/.config/paprika/config.yaml",
 	Long: `Authenticate with the Paprika API and save the resulting Bearer token to
 ~/.config/paprika/config.yaml (mode 0600). Subsequent commands will read
-the token from that file automatically.
-
-The login endpoint lives under /v1/account on the Paprika API, so you must
-override --base-url for this command:
-
-  paprika account login \
-    --base-url https://www.paprikaapp.com/api/v1 \
-    --email you@example.com \
-    --password yourpassword`,
+the token from that file automatically.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if loginEmail == "" || loginPassword == "" {
 			return fmt.Errorf("--email and --password are required")
 		}
 
-		baseURL, _ := cmd.Root().PersistentFlags().GetString("base-url")
-		c := client.NewClient(baseURL, "")
+		c := client.NewClient("https://www.paprikaapp.com/api/v1", "")
 
 		body := map[string]string{"email": loginEmail, "password": loginPassword}
 		resp, err := c.Do("POST", "/account/login/", nil, nil, body)

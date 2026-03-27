@@ -32,15 +32,12 @@ go install github.com/aarons22/paprika-mcp/paprika@latest
 ### Authenticate
 
 ```bash
-paprika account login \
-  --base-url https://www.paprikaapp.com/api/v1 \
-  --email you@example.com \
-  --password yourpassword
+paprika account login --email you@example.com --password yourpassword
 ```
 
 The token is saved automatically to `~/.config/paprika/config.yaml` (mode 0600). All subsequent commands read it from there — no manual copy-paste required.
 
-The token is also accepted via the `PAPRIKA_TOKEN` environment variable. All other commands use the default base URL (`https://www.paprikaapp.com/api/v2/sync`) — only `account login` needs the `--base-url` override shown above.
+The token is also accepted via the `PAPRIKA_TOKEN` environment variable.
 
 ### Commands
 
