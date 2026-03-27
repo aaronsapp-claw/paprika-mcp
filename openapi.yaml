@@ -1,0 +1,825 @@
+openapi: "3.0.3"
+info:
+  title: Paprika Recipe Manager API
+  version: "2.0.0"
+  description: >
+    Unofficial API for the Paprika Recipe Manager application.
+    Documented from real API traffic (API_REFERENCE.md) and supplemented
+    by reverse-engineering analysis (github.com/johnwbyrd/kappari).
+
+    **Base URL:** The default base URL is `https://www.paprikaapp.com/api/v2/sync`
+    which covers all sync endpoints. The authentication endpoint lives under
+    `/v1/account` — when calling `account login`, set `--base-url` to
+    `https://www.paprikaapp.com/api/v1` or use the `PAPRIKA_BASE_URL` environment
+    variable.
+
+    **Gzip note:** POST endpoints that sync data (recipes, groceries) require the
+    request body to be gzip-compressed JSON sent as multipart/form-data.
+    Responses from some endpoints may also be gzip-compressed; clients should
+    check for the 0x1f 0x8b magic bytes and decompress accordingly.
+
+    **Recipe path note:** The underlying Paprika API uses the singular path
+    `/v2/sync/recipe/{uid}/` for individual recipe operations. In this spec the
+    path is normalised to `/recipes/{uid}/` (plural) for a consistent CLI
+    experience; the default base URL already includes `/v2/sync` so the effective
+    URL is identical.
+
+servers:
+  - url: https://www.paprikaapp.com/api/v2/sync
+    description: Paprika sync API (all endpoints except authentication)
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: >
+        HTTP Basic Auth used only for the login endpoint.
+        Credentials are base64-encoded as `email:password`.
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        JWT bearer token obtained from POST /v1/account/login/.
+        Token should be cached locally and refreshed on 401 responses.
+
+  schemas:
+    # --- Auth ---
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          format: password
+          example: mysecretpassword
+
+    AuthResult:
+      type: object
+      properties:
+        result:
+          type: object
+          properties:
+            token:
+              type: string
+              description: JWT bearer token for subsequent authenticated requests.
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+    # --- Sync Status ---
+    SyncStatus:
+      type: object
+      description: >
+        Change counters for each resource type. Values increment on modification,
+        not total counts. Compare against previously stored values to detect which
+        types need re-syncing.
+      properties:
+        result:
+          type: object
+          properties:
+            recipes:
+              type: integer
+              example: 42
+            categories:
+              type: integer
+              example: 5
+            meals:
+              type: integer
+              example: 12
+            groceries:
+              type: integer
+              example: 8
+            groceryaisles:
+              type: integer
+              example: 15
+            groceryingredients:
+              type: integer
+              example: 30
+            grocerylists:
+              type: integer
+              example: 3
+            mealtypes:
+              type: integer
+              example: 4
+            menuitems:
+              type: integer
+              example: 0
+            menus:
+              type: integer
+              example: 0
+            pantry:
+              type: integer
+              example: 10
+            photos:
+              type: integer
+              example: 25
+            bookmarks:
+              type: integer
+              example: 2
+
+    # --- Recipes ---
+    RecipeStub:
+      type: object
+      description: Lightweight recipe reference returned by the list endpoint.
+      properties:
+        uid:
+          type: string
+          description: Uppercase UUID4 identifier.
+          example: "07975578-DE1A-42AB-B184-6E8FCB9AB753"
+        hash:
+          type: string
+          description: 64-character hex SHA256 hash for change detection.
+          example: "a1b2c3d4e5f67890abcdef1234567890abcdef1234567890abcdef1234567890"
+
+    RecipeListResult:
+      type: object
+      properties:
+        result:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecipeStub'
+
+    Recipe:
+      type: object
+      description: Full recipe object with all fields.
+      required: [uid, name]
+      properties:
+        uid:
+          type: string
+          description: Uppercase UUID4 identifier. Client-generated for new recipes.
+          example: "07975578-DE1A-42AB-B184-6E8FCB9AB753"
+        name:
+          type: string
+          description: Recipe title.
+          example: "Jordan Marsh's Blueberry Muffins"
+        ingredients:
+          type: string
+          description: Newline-separated ingredient list.
+          default: ""
+          example: "2 cups flour\n1/2 cup sugar\n2 tsp baking powder"
+        directions:
+          type: string
+          description: Step-by-step cooking instructions.
+          default: ""
+          example: "1. Preheat oven to 375F.\n2. Mix dry ingredients."
+        description:
+          type: string
+          description: Recipe summary or notes.
+          default: ""
+        notes:
+          type: string
+          description: Additional notes.
+          default: ""
+        nutritional_info:
+          type: string
+          description: Nutritional data (free text).
+          default: ""
+        servings:
+          type: string
+          description: Serving quantity (free text).
+          default: ""
+          example: "12 muffins"
+        difficulty:
+          type: string
+          description: Recipe complexity level (free text).
+          default: ""
+        prep_time:
+          type: string
+          description: Preparation duration (free text).
+          default: ""
+          example: "15 min"
+        cook_time:
+          type: string
+          description: Cooking duration (free text).
+          default: ""
+          example: "25 min"
+        total_time:
+          type: string
+          description: Total time (free text).
+          default: ""
+          example: "40 min"
+        rating:
+          type: integer
+          description: Star rating. 0 = unrated, 1-5 = rated.
+          minimum: 0
+          maximum: 5
+          default: 0
+        categories:
+          type: array
+          items:
+            type: string
+          description: List of category names (not UIDs).
+          default: []
+          example: ["Breakfast", "Baking"]
+        source:
+          type: string
+          description: Attribution or source name.
+          default: ""
+          example: "New York Times"
+        source_url:
+          type: string
+          description: Original recipe URL.
+          default: ""
+        image_url:
+          type: string
+          description: External image URL.
+          default: ""
+        photo:
+          type: string
+          description: Photo filename.
+          default: ""
+        photo_hash:
+          type: string
+          description: SHA256 hash of the photo file.
+          default: ""
+        photo_large:
+          type: string
+          nullable: true
+          description: Large photo filename.
+          default: null
+        photo_url:
+          type: string
+          nullable: true
+          description: Server-hosted photo URL (read-only).
+          default: null
+        hash:
+          type: string
+          description: >
+            64-character hex change-detection hash. Must be updated whenever
+            recipe content changes. Any valid 64-char hex string is accepted.
+          example: "a1b2c3d4e5f67890abcdef1234567890abcdef1234567890abcdef1234567890"
+        created:
+          type: string
+          description: Creation timestamp in "YYYY-MM-DD HH:MM:SS" format.
+          example: "2024-06-15 10:30:00"
+        on_favorites:
+          type: boolean
+          description: Whether the recipe is favorited.
+          default: false
+        on_grocery_list:
+          type: string
+          nullable: true
+          description: Grocery list reference if ingredients have been added.
+          default: null
+        in_trash:
+          type: boolean
+          description: Soft deletion flag. Set to true to soft-delete a recipe.
+          default: false
+        is_pinned:
+          type: boolean
+          description: Quick access marker.
+          default: false
+        scale:
+          type: string
+          nullable: true
+          description: Serving size adjustment factor.
+          default: null
+
+    RecipeResult:
+      type: object
+      properties:
+        result:
+          $ref: '#/components/schemas/Recipe'
+
+    RecipeUploadBody:
+      type: object
+      description: >
+        Multipart form upload. The `data` field must contain a gzip-compressed
+        JSON encoding of a full Recipe object. Client must provide all fields;
+        missing text fields should be empty strings, booleans false, rating 0,
+        categories [].
+      required: [data]
+      properties:
+        data:
+          type: string
+          format: binary
+          description: Gzip-compressed JSON of the full Recipe object.
+
+    BoolResult:
+      type: object
+      description: Simple success indicator returned by write endpoints.
+      properties:
+        result:
+          type: boolean
+          example: true
+
+    # --- Categories ---
+    Category:
+      type: object
+      properties:
+        uid:
+          type: string
+          description: Category unique identifier.
+          example: "CAT-UID-1"
+        name:
+          type: string
+          example: "Breakfast"
+        order_flag:
+          type: integer
+          description: Display ordering hint.
+          example: 0
+        parent_uid:
+          type: string
+          nullable: true
+          description: UID of parent category, or null for top-level.
+          default: null
+
+    CategoryListResult:
+      type: object
+      properties:
+        result:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+
+    # --- Grocery Lists ---
+    GroceryList:
+      type: object
+      properties:
+        uid:
+          type: string
+          example: "A35D5BB9-3EB3-4DE0-A883-CD786E8564FB"
+        name:
+          type: string
+          example: "My Grocery List"
+        order_flag:
+          type: integer
+          description: Display ordering hint.
+          example: 0
+        is_default:
+          type: boolean
+          description: Whether this is the default grocery list.
+          example: true
+        reminders_list:
+          type: string
+          description: Associated iOS Reminders list name.
+          example: "Paprika"
+
+    GroceryListResult:
+      type: object
+      properties:
+        result:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroceryList'
+
+    # --- Grocery Items ---
+    GroceryItem:
+      type: object
+      properties:
+        uid:
+          type: string
+          description: Uppercase UUID4, client-generated for new items.
+          example: "61DFC31A-BCBF-4912-81E3-EEF8B061DFE2"
+        name:
+          type: string
+          description: Item display name.
+          example: "flour"
+        ingredient:
+          type: string
+          description: Lowercase canonical ingredient name.
+          example: "flour"
+        quantity:
+          type: string
+          description: Quantity (free text).
+          default: ""
+          example: "2 cups"
+        instruction:
+          type: string
+          description: Preparation note (free text).
+          default: ""
+        purchased:
+          type: boolean
+          description: >
+            Checked/purchased status. Set to true for soft delete — there
+            is no true deletion endpoint for grocery items.
+          default: false
+        aisle:
+          type: string
+          description: >
+            Auto-assigned by Paprika based on ingredient. Send empty string
+            to allow Paprika to assign automatically.
+          example: "Baking Goods"
+        aisle_uid:
+          type: string
+          description: UID of the assigned aisle.
+          example: "12304D0F1A64F772E413322BD03445ADD546F7528D9628F999DBEE3B7C7819B7"
+        list_uid:
+          type: string
+          description: Required. UID of the grocery list this item belongs to.
+          example: "A25907D8-06EE-44AD-A4C7-9E50EE2B4D2C"
+        recipe_uid:
+          type: string
+          nullable: true
+          description: UID of the recipe this item came from, if any.
+          default: null
+        recipe:
+          type: string
+          nullable: true
+          description: Recipe name reference.
+          default: null
+        order_flag:
+          type: integer
+          description: Display ordering hint.
+          default: 0
+        separate:
+          type: boolean
+          description: Whether the item should be displayed separately in the list.
+          default: false
+
+    GroceryItemListResult:
+      type: object
+      properties:
+        result:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroceryItem'
+
+    GroceryUploadBody:
+      type: object
+      description: >
+        Multipart form upload for creating or updating grocery items.
+        The `data` field must contain a gzip-compressed JSON array of GroceryItem
+        objects. Client must generate a new UUID4 (uppercase) for each new item.
+        Leave `aisle` empty to allow Paprika to auto-assign.
+      required: [data]
+      properties:
+        data:
+          type: string
+          format: binary
+          description: Gzip-compressed JSON array of GroceryItem objects.
+
+    # --- Meal Plans ---
+    MealPlan:
+      type: object
+      properties:
+        uid:
+          type: string
+          description: Meal plan entry unique identifier.
+          example: "DA523295-931A-4A56-93C5-4A9B0A672C45"
+        recipe_uid:
+          type: string
+          nullable: true
+          description: UID of the associated recipe, or null for text-only meals.
+          example: "07975578-DE1A-42AB-B184-6E8FCB9AB753"
+        date:
+          type: string
+          description: Meal date in "YYYY-MM-DD HH:MM:SS" format.
+          example: "2026-02-01 00:00:00"
+        type:
+          type: integer
+          description: >
+            Numeric meal type:
+              0 = Breakfast,
+              1 = Lunch,
+              2 = Dinner,
+              3 = Snack.
+          enum: [0, 1, 2, 3]
+          example: 0
+        name:
+          type: string
+          description: Meal display name.
+          example: "Jordan Marsh's Blueberry Muffins"
+        order_flag:
+          type: integer
+          description: Display order within the same type/date.
+          example: 2
+        type_uid:
+          type: string
+          description: Meal category identifier.
+          example: "913D33C7FD39DB8C8C4514669B011F617D911345592CC77B309B812667959720"
+        scale:
+          type: string
+          nullable: true
+          description: Serving size adjustment factor.
+          default: null
+        is_ingredient:
+          type: boolean
+          description: Whether this is an ingredient entry rather than a full recipe.
+          default: false
+
+    MealPlanListResult:
+      type: object
+      properties:
+        result:
+          type: array
+          items:
+            $ref: '#/components/schemas/MealPlan'
+
+    # --- Pantry ---
+    PantryItem:
+      type: object
+      description: Pantry inventory item (endpoint confirmed from database schema analysis).
+      properties:
+        uid:
+          type: string
+          description: Uppercase UUID4 identifier.
+          example: "PANTRY-UID-1"
+        name:
+          type: string
+          example: "olive oil"
+        ingredient:
+          type: string
+          description: Lowercase canonical ingredient name.
+          example: "olive oil"
+        quantity:
+          type: string
+          description: Quantity on hand (free text).
+          default: ""
+        purchased:
+          type: boolean
+          description: Whether the item has been purchased/acquired.
+          default: false
+        aisle:
+          type: string
+          description: Aisle assignment.
+          default: ""
+        order_flag:
+          type: integer
+          description: Display ordering hint.
+          default: 0
+
+    PantryListResult:
+      type: object
+      properties:
+        result:
+          type: array
+          items:
+            $ref: '#/components/schemas/PantryItem'
+
+paths:
+  # --- Authentication ---
+  # Note: the login endpoint lives under /v1/account on the Paprika API, not /v2/sync.
+  # When using the CLI, pass --base-url https://www.paprikaapp.com/api/v1 for this command.
+  /account/login/:
+    post:
+      operationId: login
+      summary: Authenticate and obtain a Bearer token
+      description: >
+        Authenticate using HTTP Basic Auth credentials plus form-encoded body.
+        Returns a JWT Bearer token to use on all subsequent requests.
+        V1 is preferred over V2 to avoid "Unrecognized client" errors.
+
+        **CLI usage:** this endpoint lives under `/v1/account` on the real API, not `/v2/sync`.
+        When calling via the CLI, override the base URL:
+
+        ```
+        paprika account login \
+          --base-url https://www.paprikaapp.com/api/v1 \
+          --body '{"email":"you@example.com","password":"yourpassword"}' \
+          --json
+        ```
+
+        Token is cached to `~/.config/paprika/config.yaml` or read from `PAPRIKA_TOKEN`.
+      tags: [account]
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        "200":
+          description: Authentication successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResult'
+        "401":
+          description: Invalid credentials.
+
+  # --- Sync Status ---
+  /status/:
+    get:
+      operationId: getSyncStatus
+      summary: Get sync status counters
+      description: >
+        Returns change counters for all Paprika resource types. Values increment
+        on each modification. Compare against previously stored counters to detect
+        which resource types have changed since the last sync.
+      tags: [status]
+      responses:
+        "200":
+          description: Sync status counters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncStatus'
+
+  # --- Recipes ---
+  /recipes/:
+    get:
+      operationId: listRecipes
+      summary: List all recipes (lightweight uid+hash pairs)
+      description: >
+        Returns only uid and hash for each recipe. Designed for efficient
+        change detection: compare hashes against cached values to determine
+        which recipes need a full fetch. Use GET /recipes/{uid}/ for full details.
+      tags: [recipes]
+      responses:
+        "200":
+          description: Lightweight list of recipe uid+hash pairs.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeListResult'
+
+  /recipes/{uid}/:
+    get:
+      operationId: getRecipe
+      summary: Get full recipe details
+      description: >
+        Returns the complete recipe object for the specified UID.
+        Part of the two-step sync pattern: list first, then fetch only
+        recipes with changed hashes.
+
+        Note: the underlying Paprika API uses the singular path `/v2/sync/recipe/{uid}/`.
+        This spec normalises it to `/recipes/{uid}/` for a consistent CLI experience.
+      tags: [recipes]
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          description: Uppercase UUID4 recipe identifier.
+          schema:
+            type: string
+          example: "07975578-DE1A-42AB-B184-6E8FCB9AB753"
+      responses:
+        "200":
+          description: Full recipe object.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeResult'
+        "404":
+          description: Recipe not found.
+
+    post:
+      operationId: upsertRecipe
+      summary: Create or update a recipe
+      description: >
+        Creates a new recipe or updates an existing one. The request body must
+        be a gzip-compressed JSON encoding of the full Recipe object sent as
+        multipart/form-data. All fields must be present; use empty strings for
+        unused text fields. Client must generate a UUID4 (uppercase) for new
+        recipes. Update the `hash` field whenever content changes.
+
+        Soft delete: set `in_trash: true` and POST the update.
+
+        Note: the underlying Paprika API uses the singular path `/v2/sync/recipe/{uid}/`.
+      tags: [recipes]
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          description: Uppercase UUID4 recipe identifier (client-generated for new recipes).
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RecipeUploadBody'
+      responses:
+        "200":
+          description: Recipe created or updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoolResult'
+
+  # --- Categories ---
+  /categories/:
+    get:
+      operationId: listCategories
+      summary: List all recipe categories
+      description: >
+        Returns all recipe categories. The `categories` field on a Recipe
+        contains category names (strings), not these UIDs.
+      tags: [categories]
+      responses:
+        "200":
+          description: List of all categories.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryListResult'
+
+  # --- Grocery Lists ---
+  /grocerylists/:
+    get:
+      operationId: listGroceryLists
+      summary: List all grocery lists
+      description: Returns all grocery lists with their UIDs and metadata.
+      tags: [groceries]
+      responses:
+        "200":
+          description: List of all grocery lists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroceryListResult'
+
+  # --- Grocery Items ---
+  /groceries/:
+    get:
+      operationId: listGroceryItems
+      summary: List all grocery items across all lists
+      description: >
+        Returns all grocery items across all lists. Filter by `list_uid`
+        in the client if you need items for a specific list.
+      tags: [groceries]
+      responses:
+        "200":
+          description: List of all grocery items.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroceryItemListResult'
+
+    post:
+      operationId: createGroceryItems
+      summary: Create or update grocery items
+      description: >
+        Creates or updates one or more grocery items. The request body must
+        be a gzip-compressed JSON array of GroceryItem objects sent as
+        multipart/form-data. Client must generate a UUID4 (uppercase) for each
+        new item. Set `list_uid` to target the correct list. Leave `aisle`
+        empty for Paprika auto-assignment.
+
+        Soft delete: set `purchased: true` and POST the update.
+      tags: [groceries]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GroceryUploadBody'
+      responses:
+        "200":
+          description: Items created or updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoolResult'
+
+  # --- Meal Plans ---
+  /meals/:
+    get:
+      operationId: listMealPlans
+      summary: List all meal plan entries
+      description: >
+        Returns all meal plan entries. Each entry references a recipe and
+        specifies a date and meal type (0=Breakfast, 1=Lunch, 2=Dinner, 3=Snack).
+        Filter by date in the client for day-specific views.
+      tags: [meals]
+      responses:
+        "200":
+          description: List of all meal plan entries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealPlanListResult'
+
+  # --- Pantry ---
+  /pantry/:
+    get:
+      operationId: listPantryItems
+      summary: List pantry inventory items
+      description: >
+        Returns all pantry inventory items. Endpoint confirmed from database
+        schema analysis (github.com/johnwbyrd/kappari).
+      tags: [pantry]
+      responses:
+        "200":
+          description: List of pantry items.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PantryListResult'
+
+tags:
+  - name: account
+    description: Authentication and account management
+  - name: status
+    description: Sync status and change detection
+  - name: recipes
+    description: Recipe management (two-step fetch pattern)
+  - name: categories
+    description: Recipe category management
+  - name: groceries
+    description: Grocery lists and items
+  - name: meals
+    description: Meal planning
+  - name: pantry
+    description: Pantry inventory management
